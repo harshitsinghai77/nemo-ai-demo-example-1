@@ -17,6 +17,7 @@ The application consists of the following components:
 
 - **Image Analysis**: Upload an image to the S3 bucket and trigger the analysis via an API endpoint.
 - **Label Detection**: Uses Amazon Rekognition to identify objects, scenes, and concepts in the images.
+- **Content Moderation**: Uses Amazon Rekognition to detect inappropriate or sensitive content in images, flagging potentially offensive material.
 - **Descriptive Summaries**: Uses Amazon Bedrock to generate human-readable summaries of the image content.
 - **Result Storage**: Stores the analysis results in a DynamoDB table for later retrieval.
 - **RESTful API**: Provides endpoints to initiate the analysis and fetch the results.
@@ -47,3 +48,31 @@ To trigger the image analysis, send a POST request to the `/images` endpoint wit
 ### Get Analysis Results
 
 To get the analysis results, send a GET request to the `/images/{analysis_id}` endpoint, where `{analysis_id}` is the ID returned by the initial analysis request.
+
+The response includes:
+- **labels**: List of detected objects and concepts in the image
+- **summary**: AI-generated descriptive summary of the image content  
+- **moderation**: List of content moderation findings (empty array if no issues detected)
+
+Example response:
+```json
+{
+  "id": "12345-67890-abcde",
+  "labels": [...],
+  "summary": "A scenic landscape photo...",
+  "moderation": []
+}
+```
+
+If inappropriate content is detected, the moderation array will contain details about the flagged content:
+```json
+{
+  "moderation": [
+    {
+      "Name": "Suggestive",
+      "Confidence": 75.5,
+      "ParentName": ""
+    }
+  ]
+}
+```

@@ -18,6 +18,30 @@ def analyze_image(bucket: str, key: str):
     return response["Labels"]
 
 @tracer.capture_method
+def detect_moderation_labels(bucket: str, key: str):
+    """
+    Detects inappropriate, unwanted, or offensive content in an image.
+    Returns a list of moderation labels or empty list if no issues detected.
+    """
+    logger.info(f"Detecting moderation labels for image {key} from bucket {bucket}")
+    
+    try:
+        response = rekognition.detect_moderation_labels(
+            Image={"S3Object": {"Bucket": bucket, "Name": key}},
+            MinConfidence=50.0  # Default confidence threshold
+        )
+        
+        moderation_labels = response.get("ModerationLabels", [])
+        logger.info(f"Found {len(moderation_labels)} moderation labels")
+        
+        return moderation_labels
+    
+    except Exception as e:
+        logger.error(f"Error detecting moderation labels: {str(e)}")
+        # Return empty list on error to maintain consistent response format
+        return []
+
+@tracer.capture_method
 def generate_summary(labels: list) -> str:
     logger.info("Generating summary for labels")
     prompt = f"Create a short, descriptive summary for an image containing the following elements: {', '.join([label['Name'] for label in labels])}."
