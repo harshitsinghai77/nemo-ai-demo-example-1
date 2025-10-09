@@ -37,7 +37,7 @@ class AiImageAnalyzerStack(Stack):
         analysis_function = _lambda.Function(self, "ImageAnalysisFunction",
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="app.handler",
-            code=_lambda.Code.from_asset("src"),
+            code=_lambda.Code.from_asset("."),
             timeout=Duration.seconds(30),
             memory_size=512,
             environment={
