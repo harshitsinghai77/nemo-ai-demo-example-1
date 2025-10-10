@@ -8,7 +8,7 @@ from pydantic import ValidationError
 
 from src.schemas import ImageAnalysisRequest
 from src.storage import save_analysis, get_analysis
-from src.image_analyzer import analyze_image, generate_summary
+from src.image_analyzer import analyze_image, generate_summary, detect_moderation_labels
 
 logger = Logger()
 tracer = Tracer()
@@ -25,8 +25,9 @@ def create_image_analysis():
     analysis_id = str(uuid.uuid4())
     labels = analyze_image(request.bucket, request.key)
     summary = generate_summary(labels)
+    moderation = detect_moderation_labels(request.bucket, request.key)
 
-    save_analysis(analysis_id, labels, summary)
+    save_analysis(analysis_id, labels, summary, moderation)
 
     return {"analysis_id": analysis_id}
 
