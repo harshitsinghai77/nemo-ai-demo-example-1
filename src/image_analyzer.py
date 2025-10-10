@@ -18,6 +18,33 @@ def analyze_image(bucket: str, key: str):
     return response["Labels"]
 
 @tracer.capture_method
+def detect_moderation_labels(bucket: str, key: str):
+    """
+    Detects inappropriate or sensitive content in an image using AWS Rekognition.
+    
+    Args:
+        bucket (str): The S3 bucket name containing the image
+        key (str): The S3 key/path of the image to analyze
+        
+    Returns:
+        List[Dict[str, Any]]: A list of moderation labels with confidence scores,
+                             or empty list if no inappropriate content is detected
+                             or if the analysis fails
+    """
+    logger.info(f"Detecting moderation labels for image {key} from bucket {bucket}")
+    logger.info("Using minimum confidence threshold of 60.0 for moderation detection")
+    try:
+        response = rekognition.detect_moderation_labels(
+            Image={"S3Object": {"Bucket": bucket, "Name": key}},
+            MinConfidence=60.0,
+        )
+        return response.get("ModerationLabels", [])
+    except Exception as e:
+        logger.error(f"Failed to detect moderation labels: {str(e)}")
+        # Return empty list if moderation fails - this ensures the main analysis continues
+        return []
+
+@tracer.capture_method
 def generate_summary(labels: list) -> str:
     logger.info("Generating summary for labels")
     prompt = f"Create a short, descriptive summary for an image containing the following elements: {', '.join([label['Name'] for label in labels])}."
