@@ -1,6 +1,8 @@
 import boto3
 import json
+from typing import List, Dict, Any
 from aws_lambda_powertools import Logger, Tracer
+from botocore.exceptions import ClientError
 
 logger = Logger()
 tracer = Tracer()
@@ -16,6 +18,24 @@ def analyze_image(bucket: str, key: str):
         MaxLabels=10,
     )
     return response["Labels"]
+
+@tracer.capture_method
+def detect_moderation_content(bucket: str, key: str) -> List[Dict[str, Any]]:
+    logger.info(f"Detecting moderation content for image {key} from bucket {bucket}")
+    try:
+        response = rekognition.detect_moderation_labels(
+            Image={"S3Object": {"Bucket": bucket, "Name": key}},
+            MinConfidence=60
+        )
+        return response.get("ModerationLabels", [])
+    except ClientError as e:
+        error_code = e.response['Error']['Code']
+        error_message = e.response['Error']['Message']
+        logger.error(f"AWS ClientError detecting moderation content: {error_code} - {error_message}")
+        return []
+    except Exception as e:
+        logger.error(f"Unexpected error detecting moderation content: {type(e).__name__} - {str(e)}")
+        return []
 
 @tracer.capture_method
 def generate_summary(labels: list) -> str:
