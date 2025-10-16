@@ -1,5 +1,6 @@
 import boto3
 import json
+from typing import List, Dict, Any
 from aws_lambda_powertools import Logger, Tracer
 
 logger = Logger()
@@ -9,7 +10,17 @@ rekognition = boto3.client("rekognition")
 bedrock = boto3.client("bedrock-runtime")
 
 @tracer.capture_method
-def analyze_image(bucket: str, key: str):
+def analyze_image(bucket: str, key: str) -> List[Dict[str, Any]]:
+    """
+    Analyze an image in an S3 bucket and return a list of detected labels.
+    
+    Args:
+        bucket (str): The S3 bucket name.
+        key (str): The S3 object key.
+    
+    Returns:
+        List[Dict[str, Any]]: A list of detected labels.
+    """
     logger.info(f"Analyzing image {key} from bucket {bucket}")
     response = rekognition.detect_labels(
         Image={"S3Object": {"Bucket": bucket, "Name": key}},
@@ -18,7 +29,40 @@ def analyze_image(bucket: str, key: str):
     return response["Labels"]
 
 @tracer.capture_method
-def generate_summary(labels: list) -> str:
+def detect_moderation_labels(bucket: str, key: str) -> List[Dict[str, Any]]:
+    """
+    Detect moderation labels for potentially inappropriate content in an image.
+    
+    Args:
+        bucket (str): The S3 bucket name.
+        key (str): The S3 object key.
+    
+    Returns:
+        List[Dict[str, Any]]: A list of moderation labels indicating potentially 
+                              sensitive or inappropriate content. Empty if no issues detected.
+    """
+    logger.info(f"Detecting moderation labels for image {key} from bucket {bucket}")
+    try:
+        response = rekognition.detect_moderation_labels(
+            Image={"S3Object": {"Bucket": bucket, "Name": key}},
+            MinConfidence=50.0
+        )
+        return response.get("ModerationLabels", [])
+    except Exception as e:
+        logger.error(f"Error detecting moderation labels: {str(e)}")
+        return []
+
+@tracer.capture_method
+def generate_summary(labels: List[Dict[str, Any]]) -> str:
+    """
+    Generate a descriptive summary of an image based on detected labels.
+    
+    Args:
+        labels (List[Dict[str, Any]]): A list of detected labels from image analysis.
+    
+    Returns:
+        str: A human-readable summary of the image content.
+    """
     logger.info("Generating summary for labels")
     prompt = f"Create a short, descriptive summary for an image containing the following elements: {', '.join([label['Name'] for label in labels])}."
 
