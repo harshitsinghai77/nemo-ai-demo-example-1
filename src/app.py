@@ -6,9 +6,9 @@ from aws_lambda_powertools.utilities.typing import LambdaContext
 from aws_lambda_powertools.logging import correlation_paths
 from pydantic import ValidationError
 
-from src.schemas import ImageAnalysisRequest
-from src.storage import save_analysis, get_analysis
-from src.image_analyzer import analyze_image, generate_summary
+from schemas import ImageAnalysisRequest
+from storage import save_analysis, get_analysis
+from image_analyzer import analyze_image, generate_summary, detect_moderation_labels
 
 logger = Logger()
 tracer = Tracer()
@@ -19,14 +19,17 @@ def create_image_analysis():
     try:
         body = app.current_event.json_body
         request = ImageAnalysisRequest(**body)
-    except (ValidationError, TypeError) as e:
-        return {"statusCode": HTTPStatus.BAD_REQUEST, "body": str(e)}
+    except ValidationError as e:
+        return {"statusCode": HTTPStatus.BAD_REQUEST, "body": f"Validation error: {str(e)}"}
+    except TypeError as e:
+        return {"statusCode": HTTPStatus.BAD_REQUEST, "body": f"Type error: {str(e)}"}
 
     analysis_id = str(uuid.uuid4())
     labels = analyze_image(request.bucket, request.key)
     summary = generate_summary(labels)
+    moderation_labels = detect_moderation_labels(request.bucket, request.key)
 
-    save_analysis(analysis_id, labels, summary)
+    save_analysis(analysis_id, labels, summary, moderation_labels)
 
     return {"analysis_id": analysis_id}
 
@@ -39,5 +42,5 @@ def get_image_analysis(analysis_id: str):
 
 @logger.inject_lambda_context(correlation_id_path=correlation_paths.API_GATEWAY_REST)
 @tracer.capture_lambda_handler
-def handler(event: dict, context: LambdaContext):
+def handler(event: dict, context: LambdaContext) -> dict:
     return app.resolve(event, context)
